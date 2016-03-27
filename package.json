@@ -10,5 +10,8 @@
     "wechat"
   ],
   "author": "Wang Chao",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "request": "^2.69.0"
+  }
 }
