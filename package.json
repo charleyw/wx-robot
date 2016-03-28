@@ -12,6 +12,7 @@
   "author": "Wang Chao",
   "license": "ISC",
   "dependencies": {
+    "open": "0.0.5",
     "request": "^2.69.0"
   }
 }
