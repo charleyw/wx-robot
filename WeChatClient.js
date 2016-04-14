@@ -1,5 +1,5 @@
 'use strict';
-var request = require('request')
+var request = require('request').defaults({jar: true})
 var open = require('open')
 
 class WeChatClient {
@@ -8,11 +8,31 @@ class WeChatClient {
       .then(this.printQRCode)
       .then(this.checkLoginStatus.bind(this))
       .then(this.getLoginInfo.bind(this))
+      .then(this.webInit.bind(this))
       .then(console.log, err => console.log(err))
+  }
+
+  webInit(baseRequest) {
+    const that = this;
+    return new Promise((resolve, reject) => {
+      request.post({
+        uri: that.url + '/webwxinit?r=' + new Date().getTime(),
+        body: {BaseRequest: baseRequest},
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        json:true
+      }, (err, resp, body) => {
+        if(!err){
+          resolve(body)
+        } else {
+          reject(err)
+        }
+      })
+    })
   }
 
   getLoginInfo(url) {
     const that = this;
+    this.url = url.substr(0, url.lastIndexOf('/'));
     return new Promise((resolve, reject) => {
       request({url: url, followRedirect: false}, (err, resp, body) => {
         if (!err) {
@@ -83,7 +103,7 @@ class WeChatClient {
             reject('UUID response not correct: ' + JSON.stringify(body))
           }
         } else {
-          reject('get uuid failed')
+          reject('Get uuid failed: ' + JSON.stringify(err))
         }
       })
     })
