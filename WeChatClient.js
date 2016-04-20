@@ -1,15 +1,56 @@
 'use strict';
-var request = require('request').defaults({jar: true})
-var open = require('open')
+var request = require('request').defaults({jar: true});
+var open = require('open');
 
 class WeChatClient {
+  constructor() {
+    this.checkLoginStatus = this.checkLoginStatus.bind(this);
+    this.getLoginInfo = this.getLoginInfo.bind(this);
+    this.webInit = this.webInit.bind(this);
+    this.statusNotify = this.statusNotify.bind(this);
+    this.processUserLoginData = this.processUserLoginData.bind(this);
+  }
+
   login() {
     this.getQRUUID()
       .then(this.printQRCode)
-      .then(this.checkLoginStatus.bind(this))
-      .then(this.getLoginInfo.bind(this))
-      .then(this.webInit.bind(this))
+      .then(this.checkLoginStatus)
+      .then(this.getLoginInfo)
+      .then(this.webInit)
+      .then(this.processUserLoginData)
+      .then(this.statusNotify)
       .then(console.log, err => console.log(err))
+  }
+
+  statusNotify(userData) {
+    const that = this;
+    return new Promise((resolve, reject) => {
+      request.post({
+        uri: that.url + '/webwxinit?r=' + new Date().getTime(),
+        body: {
+          BaseRequest: that.baseRequest,
+          Code: 3,
+          FromUserName: userData.UserName,
+          ToUserName: userData.UserName,
+          ClientMsgId: new Date().getTime()
+        },
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        json: true
+      }, (err, resp, body) => {
+        if (!err) {
+          resolve(body)
+        } else {
+          reject(err)
+        }
+      })
+    })
+  }
+
+  processUserLoginData(data) {
+    this.user = data.User;
+    this.SyncKey = data.SyncKey;
+    this.joinnedSyncKey = data.SyncKey.List.map(entry => entry.Key + '_' + entry.Val).join('|');
+    return new Promise(resolve => resolve(this.user))
   }
 
   webInit(baseRequest) {
@@ -19,9 +60,9 @@ class WeChatClient {
         uri: that.url + '/webwxinit?r=' + new Date().getTime(),
         body: {BaseRequest: baseRequest},
         headers: {'Content-Type': 'application/json; charset=UTF-8'},
-        json:true
+        json: true
       }, (err, resp, body) => {
-        if(!err){
+        if (!err) {
           resolve(body)
         } else {
           reject(err)
