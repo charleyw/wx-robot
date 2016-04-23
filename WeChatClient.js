@@ -2,6 +2,8 @@
 var EventEmitter2 = require('eventemitter2').EventEmitter2;
 var request = require('request').defaults({jar: true});
 var open = require('open');
+var Log = require('log'),
+  log = new Log('info');
 
 class WeChatClient {
   constructor() {
@@ -15,18 +17,21 @@ class WeChatClient {
   }
 
   startEventEmitter() {
+    log.info("Starting to event emitter");
+
     const that = this;
     const emitter = new EventEmitter2();
 
     emitter.on('new-messages-got', function (message) {
+      log.info("event received: [new-messages-got]");
       console.log(message)
     });
 
     emitter.on('sync-check-finished', function () {
+      log.info("event received: [sync-check-finished]");
       //that.syncCheck().then(hasNewMessages => hasNewMessages ? that.getNewMsg().then(function (message) {emitter.emit('new-message-got', message)}) : {});
       that.syncCheck().then(function(hasNewMessages){
-        emitter.emit('sync-check-finished');
-        hasNewMessages ? that.getNewMsg().then(message => emitter.emit('new-message-got', message)) : {}
+        hasNewMessages ? that.getNewMsg().then(message => {emitter.emit('new-message-got', message); emitter.emit('sync-check-finished')}) : emitter.emit('sync-check-finished')
       });
     });
 
@@ -44,12 +49,13 @@ class WeChatClient {
       .then(this.processUserLoginData)
       .then(this.statusNotify)
       .then(this.startEventEmitter)
-      .then(() => this.emitter.emit('sync-check-finished'));
+      .then(() => setTimeout(() => this.emitter.emit('sync-check-finished'), 500));
   }
 
   getNewMsg() {
     const that = this;
     return new Promise((resolve, reject) => {
+      log.info("Start to get new message");
       request.post({
         uri: that.url + `/webwxsync?sid=${that.loginInfo.wxsid}&skey=${that.loginInfo.skey}`,
         body: {
@@ -61,9 +67,11 @@ class WeChatClient {
         json: true
       }, (err, resp, body) => {
         if (!err) {
+          log.info("Get new messages successfully" + JSON.stringify(body));
           that.SyncKey = body.SyncKey;
           resolve(body)
         } else {
+          log.error("Get new messages failed" + JSON.stringify(err));
           reject(err)
         }
       })
@@ -73,6 +81,7 @@ class WeChatClient {
   syncCheck() {
     const that = this;
     return new Promise((resolve, reject) => {
+      log.info("Start sync check");
       request({
         uri: that.url + '/synccheck',
         qs: {
@@ -85,16 +94,19 @@ class WeChatClient {
         }
       }, (err, resp, body) => {
         if (!err) {
+          log.info("Sync check successfully: " + JSON.stringify(body));
+
           const matchResults = body.match('window.synccheck={retcode:"(\\d+)",selector:"(\\d+)"}');
           if (matchResults) {
             if (matchResults[1] !== 0) {
-              console.error('SyncCheck Failed: ' + body);
+              log.error('SyncCheck Failed: ' + body, '\nMatch results: ', matchResults);
               resolve(false)
             } else {
               resolve(!!matchResults[2])
             }
           }
         } else {
+          log.error("Sync check failed: " + JSON.stringify(err));
           reject(err)
         }
       })
@@ -135,6 +147,7 @@ class WeChatClient {
   webInit(baseRequest) {
     const that = this;
     return new Promise((resolve, reject) => {
+      log.info("Start Web init");
       request.post({
         uri: that.url + '/webwxinit?r=' + new Date().getTime(),
         body: {BaseRequest: baseRequest},
@@ -142,8 +155,10 @@ class WeChatClient {
         json: true
       }, (err, resp, body) => {
         if (!err) {
+          log.info("Web init successfully: >> data omitted! <<");
           resolve(body)
         } else {
+          log.error("Web init failed: " + JSON.stringify(err));
           reject(err)
         }
       })
@@ -154,6 +169,7 @@ class WeChatClient {
     const that = this;
     this.url = url.substr(0, url.lastIndexOf('/'));
     return new Promise((resolve, reject) => {
+      log.info("Start fetching login info");
       request({url: url, followRedirect: false}, (err, resp, body) => {
         if (!err) {
           const matchResults = body.match(/.*<(skey)>(.*?)<\/\1><(wxsid)>(.*?)<\/\3><(wxuin)>(.*?)<\/\5><(pass_ticket)>(.*?)<\/\7>/);
@@ -171,10 +187,11 @@ class WeChatClient {
               Uin: matchResults[6],
               DeviceID: matchResults[8]
             };
-
+            log.info("Fetch login info successfully: " + JSON.stringify(that.loginInfo));
             resolve(this.baseRequest)
           }
         } else {
+          log.error("Failed fetching login info" + JSON.stringify(err));
           reject(err)
         }
       })
@@ -185,18 +202,22 @@ class WeChatClient {
     const that = this;
     return new Promise((resolve, reject) => {
       const url = `https://login.weixin.qq.com/cgi-bin/mmwebwx-bin/login?loginicon=true&uuid=${uuid}&tip=0&_=${new Date().getTime()}`
+      log.info("Start checking login status");
       request(url, (err, resp, body) => {
         if (!err && resp.statusCode == 200) {
           const results = body.match(/window.code\s*=\s*(\d+)/);
           if (results && results[1] == '201') {
-            console.log('Press confirm button');
+            log.warning("Waiting for user press confirm button");
             that.checkLoginStatus(uuid).then(resolve)
           } else if (results && results[1] == '200') {
+            log.info("Check login successfully");
             resolve(body.match(/window.redirect_uri="(\S+)";/)[1])
           } else {
+            log.error("Check login status failed" + JSON.stringify(body));
             reject(body)
           }
         } else {
+          log.error("Check login status failed" + JSON.stringify(body));
           reject(err)
         }
       })
@@ -204,7 +225,7 @@ class WeChatClient {
   }
 
   printQRCode(uuid) {
-    console.log('QR Code Url: https://login.weixin.qq.com/qrcode/' + uuid);
+    log.info('QR Code Url: https://login.weixin.qq.com/qrcode/' + uuid);
     open('https://login.weixin.qq.com/qrcode/' + uuid);
     return new Promise((resolve, reject) => {
       resolve(uuid)
@@ -213,37 +234,22 @@ class WeChatClient {
 
   getQRUUID() {
     return new Promise((resolve, reject) => {
+      log.info("Start to request UUID");
       const url = 'https://login.weixin.qq.com/jslogin?appid=wx782c26e4c19acffb&redirect_uri=https%3A%2F%2Fwx.qq.com%2Fcgi-bin%2Fmmwebwx-bin%2Fwebwxnewloginpage&fun=new&lang=en_US&_=' + new Date().getTime();
       request(url, (err, resp, body) => {
         if (!err && resp.statusCode == 200) {
           const results = body.match(/window\.QRLogin\.code = (\d+); window\.QRLogin\.uuid = "(\S+?)";/);
           if (results && results[1] === '200') {
+            log.info("Successful get UUID: " + results[2]);
             resolve(results[2])
           } else {
+            log.error("Failed to get UUID!");
             reject('UUID response not correct: ' + JSON.stringify(body))
           }
         } else {
           reject('Get uuid failed: ' + JSON.stringify(err))
         }
       })
-    })
-  }
-
-  getQRCode(uuid) {
-    return new Promise((resolve, reject) => {
-      request(`https://login.weixin.qq.com/qrcode/${uuid}`,
-        (err, resp, body) => {
-          if (!err && resp.statusCode == 200) {
-            const results = body.match(/window\.QRLogin\.code = (\d+); window.QRLogin.uuid = "[^"]+?";/);
-            if (results && results[1] === 200) {
-              resolve(results[2])
-            } else {
-              reject('get uuid failed')
-            }
-          } else {
-            reject('get uuid failed')
-          }
-        })
     })
   }
 }
