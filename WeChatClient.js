@@ -24,15 +24,24 @@ class WeChatClient {
 
     emitter.on('new-messages-got', function (message) {
       log.info("event received: [new-messages-got]");
-      console.log(message)
+      log.info(message.AddMsgCount);
+
+      that.joinnedSyncKey = message.SyncKey.List.map(entry => entry.Key + '_' + entry.Val).join('|');
+      emitter.emit('new-sync-key-got', that.joinnedSyncKey)
     });
 
-    emitter.on('sync-check-finished', function () {
+    emitter.on('new-sync-key-got', joinedSyncKey => {
+      log.info("event received: [new-sync-key-got]", joinedSyncKey);
+      that.syncCheck(joinedSyncKey).then(hasMessage => emitter.emit('sync-check-finished', hasMessage))
+    });
+
+    emitter.on('sync-check-finished', hasMessages => {
       log.info("event received: [sync-check-finished]");
-      //that.syncCheck().then(hasNewMessages => hasNewMessages ? that.getNewMsg().then(function (message) {emitter.emit('new-message-got', message)}) : {});
-      that.syncCheck().then(function(hasNewMessages){
-        hasNewMessages ? that.getNewMsg().then(message => {emitter.emit('new-message-got', message); emitter.emit('sync-check-finished')}) : emitter.emit('sync-check-finished')
-      });
+      hasMessages ? that.getNewMsg().then(message => emitter.emit('new-messages-got', message)) : emitter.emit('sync-check-finished', that.joinnedSyncKey)
+    });
+
+    emitter.on('error', error => {
+      console.log(error)
     });
 
     this.emitter = emitter;
@@ -49,7 +58,7 @@ class WeChatClient {
       .then(this.processUserLoginData)
       .then(this.statusNotify)
       .then(this.startEventEmitter)
-      .then(() => setTimeout(() => this.emitter.emit('sync-check-finished'), 500));
+      .then(() => setTimeout(() => this.emitter.emit('new-sync-key-got', this.joinnedSyncKey), 500));
   }
 
   getNewMsg() {
@@ -67,7 +76,7 @@ class WeChatClient {
         json: true
       }, (err, resp, body) => {
         if (!err) {
-          log.info("Get new messages successfully" + JSON.stringify(body));
+          log.info("Get new messages successfully: >> message omitted <<");
           that.SyncKey = body.SyncKey;
           resolve(body)
         } else {
@@ -78,7 +87,7 @@ class WeChatClient {
     })
   }
 
-  syncCheck() {
+  syncCheck(synckey) {
     const that = this;
     return new Promise((resolve, reject) => {
       log.info("Start sync check");
@@ -90,7 +99,7 @@ class WeChatClient {
           sid: that.loginInfo.wxsid,
           uin: that.loginInfo.wxuin,
           deviceid: that.loginInfo.pass_ticket,
-          synckey: that.joinnedSyncKey
+          synckey: synckey
         }
       }, (err, resp, body) => {
         if (!err) {
