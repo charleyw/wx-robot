@@ -22,6 +22,29 @@ class WeChatClient {
       .then(console.log, err => console.log(err))
   }
 
+  getNewMsg() {
+    const that = this;
+    return new Promise((resolve, reject) => {
+      request.post({
+        uri: that.url + `/webwxsync?sid=${that.loginInfo.wxsid}&skey=${that.loginInfo.skey}`,
+        body: {
+          BaseRequest: that.baseRequest,
+          SyncKey: that.SyncKey,
+          rr: new Date().getTime()
+        },
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        json: true
+      }, (err, resp, body) => {
+        if (!err) {
+          that.SyncKey = body.SyncKey;
+          resolve(body)
+        } else {
+          reject(err)
+        }
+      })
+    })
+  }
+
   syncCheck() {
     const that = this;
     return new Promise((resolve, reject) => {
