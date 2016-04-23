@@ -22,6 +22,29 @@ class WeChatClient {
       .then(console.log, err => console.log(err))
   }
 
+  syncCheck() {
+    const that = this;
+    return new Promise((resolve, reject) => {
+      request({
+        uri: that.url + '/synccheck',
+        qs: {
+          r: new Date().getTime(),
+          skey: that.loginInfo.skey,
+          sid: that.loginInfo.wxsid,
+          uin: that.loginInfo.wxuin,
+          deviceid: that.loginInfo.pass_ticket,
+          synckey: that.joinnedSyncKey
+        }
+      }, (err, resp, body) => {
+        if (!err) {
+          resolve(body)
+        } else {
+          reject(err)
+        }
+      })
+    })
+  }
+
   statusNotify(userData) {
     const that = this;
     return new Promise((resolve, reject) => {
