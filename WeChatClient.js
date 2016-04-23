@@ -28,7 +28,11 @@ class WeChatClient {
         emitter.emit('sync-check-finished');
         hasNewMessages ? that.getNewMsg().then(message => emitter.emit('new-message-got', message)) : {}
       });
-    })
+    });
+
+    this.emitter = emitter;
+
+    return Promise.resolve();
   }
 
   login() {
@@ -39,7 +43,8 @@ class WeChatClient {
       .then(this.webInit)
       .then(this.processUserLoginData)
       .then(this.statusNotify)
-      .then(this.startEventEmitter, err => console.log(err))
+      .then(this.startEventEmitter)
+      .then(() => this.emitter.emit('sync-check-finished'));
   }
 
   getNewMsg() {
