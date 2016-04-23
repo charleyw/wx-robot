@@ -1,4 +1,5 @@
 'use strict';
+var EventEmitter2 = require('eventemitter2').EventEmitter2;
 var request = require('request').defaults({jar: true});
 var open = require('open');
 
@@ -9,6 +10,25 @@ class WeChatClient {
     this.webInit = this.webInit.bind(this);
     this.statusNotify = this.statusNotify.bind(this);
     this.processUserLoginData = this.processUserLoginData.bind(this);
+    this.startEventEmitter = this.startEventEmitter.bind(this);
+
+  }
+
+  startEventEmitter() {
+    const that = this;
+    const emitter = new EventEmitter2();
+
+    emitter.on('new-messages-got', function (message) {
+      console.log(message)
+    });
+
+    emitter.on('sync-check-finished', function () {
+      //that.syncCheck().then(hasNewMessages => hasNewMessages ? that.getNewMsg().then(function (message) {emitter.emit('new-message-got', message)}) : {});
+      that.syncCheck().then(function(hasNewMessages){
+        emitter.emit('sync-check-finished');
+        hasNewMessages ? that.getNewMsg().then(message => emitter.emit('new-message-got', message)) : {}
+      });
+    })
   }
 
   login() {
@@ -19,7 +39,7 @@ class WeChatClient {
       .then(this.webInit)
       .then(this.processUserLoginData)
       .then(this.statusNotify)
-      .then(console.log, err => console.log(err))
+      .then(this.startEventEmitter, err => console.log(err))
   }
 
   getNewMsg() {
@@ -60,7 +80,15 @@ class WeChatClient {
         }
       }, (err, resp, body) => {
         if (!err) {
-          resolve(body)
+          const matchResults = body.match('window.synccheck={retcode:"(\\d+)",selector:"(\\d+)"}');
+          if (matchResults) {
+            if (matchResults[1] !== 0) {
+              console.error('SyncCheck Failed: ' + body);
+              resolve(false)
+            } else {
+              resolve(!!matchResults[2])
+            }
+          }
         } else {
           reject(err)
         }
