@@ -98,11 +98,11 @@ class WeChatClient {
 
           const matchResults = body.match('window.synccheck={retcode:"(\\d+)",selector:"(\\d+)"}');
           if (matchResults) {
-            if (matchResults[1] !== 0) {
+            if (matchResults[1] !== '0') {
               log.error('SyncCheck Failed: ' + body, '\nMatch results: ', matchResults);
               resolve(false)
             } else {
-              resolve(!!matchResults[2])
+              resolve(matchResults[2] !== '0')
             }
           }
         } else {
