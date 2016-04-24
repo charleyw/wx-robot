@@ -2,8 +2,9 @@
 const WeChatClient = require('./WeChatClient');
 
 class DefaultResponder {
-  onText(message) {
-    console.log(message.Content)
+  onText(message, reply) {
+    console.log(message.Content);
+    reply('Echo: ' + message.Content);
   }
 }
 

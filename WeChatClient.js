@@ -14,6 +14,7 @@ class WeChatClient {
     this.processUserLoginData = this.processUserLoginData.bind(this);
     this.startEventEmitter = this.startEventEmitter.bind(this);
     this.registerResponder = this.registerResponder.bind(this);
+    this.sendMsg = this.sendMsg.bind(this);
 
     this.responders = [];
   }
@@ -73,9 +74,11 @@ class WeChatClient {
   }
 
   registerResponder(condition, responder) {
+    const that = this;
+
     if(!!this.emitter){
       log.info("Register responder on: " + 'message.' + condition + '.**');
-      this.emitter.on('message.' + condition + '.**', function(message){
+      this.emitter.on('message.' + condition + '.**', function(msg){
         log.info(`Event received [${'message' + condition + '.**'}]`);
         const events = this.event.split('.');
         if(events.length < 4){
@@ -83,7 +86,9 @@ class WeChatClient {
         } else {
           switch (events[3]){
             case 'text':
-              responder.onText(message);
+              responder.onText(msg, response =>
+                that.sendMsg(msg.FromUserName !== that.user.UserName ? msg.FromUserName : msg.ToUserName, response)
+              );
               break;
             default:
               log.warning(`Unsupport message [${events[4]}] received by responder: ${condition}`)
@@ -103,6 +108,38 @@ class WeChatClient {
       .then(this.statusNotify)
       .then(this.startEventEmitter)
       .then(() => setTimeout(() => this.emitter.emit('new-sync-key-got', this.joinnedSyncKey), 500));
+  }
+
+  sendMsg(toUser, text) {
+    const that = this;
+    return new Promise((resolve, reject) => {
+      const msgID = new Date().getTime();
+      log.info(`Starting send message to: [${toUser}] with [${text}], ID: ${msgID}`);
+      request.post({
+        uri: that.url + '/webwxsendmsg',
+        body: {
+          BaseRequest: Object.assign({}, that.baseRequest, {DeviceID: 'e' + msgID}),
+          Msg: {
+            ClientMsgId: msgID,
+            Content: text,
+            FromUserName: that.user.UserName,
+            LocalID: msgID,
+            ToUserName: toUser,
+            Type: 1
+          }
+        },
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        json: true
+      }, (err, resp, body) => {
+        if (!err) {
+          log.info(`Message [${msgID}] sent: `, body);
+          resolve(body)
+        } else {
+          log.error(`Message [${msgID}] failed to send!`);
+          reject(err)
+        }
+      })
+    })
   }
 
   getNewMsg() {
