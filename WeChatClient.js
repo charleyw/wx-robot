@@ -26,9 +26,7 @@ class WeChatClient {
       log.info("event received: [new-messages-got]");
       log.info(message.AddMsgCount);
 
-      if(message.AddMsgCount){
-        console.log(JSON.stringify(message.AddMsgList))
-      }
+      console.log(JSON.stringify(message.AddMsgList))
 
       that.joinnedSyncKey = message.SyncKey.List.map(entry => entry.Key + '_' + entry.Val).join('|');
       emitter.emit('new-sync-key-got', that.joinnedSyncKey)
@@ -41,7 +39,7 @@ class WeChatClient {
 
     emitter.on('sync-check-finished', hasMessages => {
       log.info("event received: [sync-check-finished]");
-      hasMessages ? that.getNewMsg().then(message => emitter.emit('new-messages-got', message)) : emitter.emit('sync-check-finished', that.joinnedSyncKey)
+      hasMessages ? that.getNewMsg().then(message => emitter.emit('new-messages-got', message)) : emitter.emit('new-sync-key-got', that.joinnedSyncKey)
     });
 
     emitter.on('error', error => {
