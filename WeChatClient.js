@@ -36,12 +36,9 @@ class WeChatClient {
         const messageScope = message.FromUserName.startsWith('@@') ?  'groupmessage' : 'singlemessage';
         switch (message.MsgType) {
           case 1:
-            let isSingleMessage = true;
-            if(message.FromUserName.startsWith('@@')){
-              isSingleMessage = false;
-            }
-            log.info('Emit Event: ' + ['message', messageScope, message.FromUserName, 'text'].join('.'));
-            emitter.emit(['message', messageScope, message.FromUserName, 'text'].join('.'), message);
+            const eventKey = ['message', messageScope, message.FromUserName, 'text'].join('.');
+            log.info('Emit Event: ' + eventKey);
+            emitter.emit(eventKey, message);
             break;
           default:
             log.warning("Unsupported message type!")
