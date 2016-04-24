@@ -26,6 +26,10 @@ class WeChatClient {
       log.info("event received: [new-messages-got]");
       log.info(message.AddMsgCount);
 
+      if(message.AddMsgCount){
+        console.log(JSON.stringify(message.AddMsgList))
+      }
+
       that.joinnedSyncKey = message.SyncKey.List.map(entry => entry.Key + '_' + entry.Val).join('|');
       emitter.emit('new-sync-key-got', that.joinnedSyncKey)
     });
