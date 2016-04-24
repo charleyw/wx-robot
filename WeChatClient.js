@@ -13,20 +13,40 @@ class WeChatClient {
     this.statusNotify = this.statusNotify.bind(this);
     this.processUserLoginData = this.processUserLoginData.bind(this);
     this.startEventEmitter = this.startEventEmitter.bind(this);
+    this.registerResponder = this.registerResponder.bind(this);
 
+    this.responders = [];
+  }
+
+  respondWith(condition, responder){
+    this.registerResponder(condition, responder);
+    this.responders[condition] = responder;
   }
 
   startEventEmitter() {
-    log.info("Starting to event emitter");
+    log.info("Starting event emitter");
 
     const that = this;
-    const emitter = new EventEmitter2();
+    const emitter = new EventEmitter2({wildcard: true});
 
     emitter.on('new-messages-got', function (message) {
       log.info("event received: [new-messages-got]");
-      log.info(message.AddMsgCount);
 
-      console.log(JSON.stringify(message.AddMsgList))
+      message.AddMsgList && message.AddMsgList.forEach(message => {
+        const messageScope = message.FromUserName.startsWith('@@') ?  'groupmessage' : 'singlemessage';
+        switch (message.MsgType) {
+          case 1:
+            let isSingleMessage = true;
+            if(message.FromUserName.startsWith('@@')){
+              isSingleMessage = false;
+            }
+            log.info('Emit Event: ' + ['message', messageScope, message.FromUserName, 'text'].join('.'));
+            emitter.emit(['message', messageScope, message.FromUserName, 'text'].join('.'), message);
+            break;
+          default:
+            log.warning("Unsupported message type!")
+        }
+      });
 
       that.joinnedSyncKey = message.SyncKey.List.map(entry => entry.Key + '_' + entry.Val).join('|');
       emitter.emit('new-sync-key-got', that.joinnedSyncKey)
@@ -48,7 +68,32 @@ class WeChatClient {
 
     this.emitter = emitter;
 
+    this.responders && Object.keys(this.responders).forEach(function(key){
+      that.registerResponder(key, that.responders[key]);
+    });
+
     return Promise.resolve();
+  }
+
+  registerResponder(condition, responder) {
+    if(!!this.emitter){
+      log.info("Register responder on: " + 'message.' + condition + '.**');
+      this.emitter.on('message.' + condition + '.**', function(message){
+        log.info(`Event received [${'message' + condition + '.**'}]`);
+        const events = this.event.split('.');
+        if(events.length < 4){
+          log.warning('Invalid message event received: ' + this.event)
+        } else {
+          switch (events[3]){
+            case 'text':
+              responder.onText(message);
+              break;
+            default:
+              log.warning(`Unsupport message [${events[4]}] received by responder: ${condition}`)
+          }
+        }
+      });
+    }
   }
 
   login() {

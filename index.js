@@ -1,5 +1,12 @@
 'use strict';
-var WeChatClient = require('./WeChatClient');
+const WeChatClient = require('./WeChatClient');
 
-// 期待打印二维码等待扫描
-new WeChatClient().login()
+class DefaultResponder {
+  onText(message) {
+    console.log(message.Content)
+  }
+}
+
+const client = new WeChatClient();
+client.respondWith('singlemessage.*', new DefaultResponder());
+client.login();
