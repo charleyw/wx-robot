@@ -61,7 +61,7 @@ class WeChatClient {
     });
 
     emitter.on('error', error => {
-      console.log(error)
+      log.error(error)
     });
 
     this.emitter = emitter;
