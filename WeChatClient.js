@@ -316,7 +316,7 @@ class WeChatClient {
 
   printQRCode(uuid) {
     log.info('QR Code Url: https://login.weixin.qq.com/qrcode/' + uuid);
-    open('https://login.weixin.qq.com/qrcode/' + uuid);
+    //open('https://login.weixin.qq.com/qrcode/' + uuid);
     return new Promise((resolve, reject) => {
       resolve(uuid)
     })
