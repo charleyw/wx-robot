@@ -17,6 +17,8 @@ class WeChatClient {
     this.sendMsg = this.sendMsg.bind(this);
 
     this.responders = [];
+    this.syncCheckRetries = 3;
+    this.getNewMsgRetries = 3;
   }
 
   respondWith(condition, responder){
@@ -52,12 +54,32 @@ class WeChatClient {
 
     emitter.on('new-sync-key-got', joinedSyncKey => {
       log.info("event received: [new-sync-key-got]", joinedSyncKey);
-      that.syncCheck(joinedSyncKey).then(hasMessage => emitter.emit('sync-check-finished', hasMessage))
+      that.syncCheck(joinedSyncKey).then(hasMessage => emitter.emit('sync-check-finished', hasMessage), err => emitter.emit('sync-check-failed', err))
     });
 
     emitter.on('sync-check-finished', hasMessages => {
       log.info("event received: [sync-check-finished]");
-      hasMessages ? that.getNewMsg().then(message => emitter.emit('new-messages-got', message)) : emitter.emit('new-sync-key-got', that.joinnedSyncKey)
+      hasMessages ? that.getNewMsg().then(message => emitter.emit('new-messages-got', message), err => emitter.emit('get-new-message-failed', err)) : emitter.emit('new-sync-key-got', that.joinnedSyncKey)
+    });
+
+    emitter.on('get-new-message-failed', err => {
+      log.info("event received: [get-new-message-failed]");
+      log.error("Get new message failed: ", err);
+      if(that.getNewMsgRetries > 0){
+        that.getNewMsgRetries -= 1;
+        log.info("Start to retry getNewMsg, retries left", that.getNewMsgRetries);
+        emitter.emit('sync-check-finished', true);
+      }
+    });
+
+    emitter.on('sync-check-failed', err => {
+      log.info("event received: [sync-check-failed]");
+      log.error("Sync check failed: ", err);
+      if(that.syncCheckRetries > 0){
+        that.syncCheckRetries -= 1;
+        log.info("Start to retry syncCheck, retries left", that.syncCheckRetries);
+        emitter.emit('new-sync-key-got', that.joinnedSyncKey)
+      }
     });
 
     emitter.on('error', error => {
