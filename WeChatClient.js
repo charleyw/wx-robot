@@ -34,6 +34,7 @@ class WeChatClient {
 
     emitter.on('new-messages-got', function (message) {
       log.info("event received: [new-messages-got]");
+      that.getNewMsgRetries = 3;
 
       message.AddMsgList && message.AddMsgList.forEach(message => {
         const messageScope = message.FromUserName.startsWith('@@') ?  'groupmessage' : 'singlemessage';
@@ -58,6 +59,7 @@ class WeChatClient {
     });
 
     emitter.on('sync-check-finished', hasMessages => {
+      that.syncCheckRetries = 3;
       log.info("event received: [sync-check-finished]");
       hasMessages ? that.getNewMsg().then(message => emitter.emit('new-messages-got', message), err => emitter.emit('get-new-message-failed', err)) : emitter.emit('new-sync-key-got', that.joinnedSyncKey)
     });
