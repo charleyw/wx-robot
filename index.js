@@ -14,4 +14,4 @@ const client = new WeChatClient();
 //client.respondWith('singlemessage.*', new DefaultResponder());
 //client.respondWith('singlemessage.*', new TuLinRobotResponder());
 client.respondSingleMsgWith(new TuLinRobotResponder());
-client.login();
+client.login().then(console.log);

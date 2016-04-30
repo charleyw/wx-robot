@@ -149,7 +149,7 @@ class WeChatClient {
   }
 
   login() {
-    this.getQRUUID()
+    return this.getQRUUID()
       .then(this.printQRCode)
       .then(this.checkLoginStatus)
       .then(this.getLoginInfo)
@@ -157,7 +157,11 @@ class WeChatClient {
       .then(this.processUserLoginData)
       .then(this.statusNotify)
       .then(this.startEventEmitter)
-      .then(() => setTimeout(() => this.emitter.emit('new-sync-key-got', this.joinnedSyncKey), 500));
+      .then(() => {
+        setTimeout(() => this.emitter.emit('new-sync-key-got', this.joinnedSyncKey), 500);
+        return Promise.resolve();
+      })
+      .then(() => Promise.resolve(this.user.UserName));
   }
 
   sendMsg(toUser, text) {
@@ -341,7 +345,8 @@ class WeChatClient {
   checkLoginStatus(uuid) {
     const that = this;
     return new Promise((resolve, reject) => {
-      const url = `https://login.weixin.qq.com/cgi-bin/mmwebwx-bin/login?loginicon=true&uuid=${uuid}&tip=0&_=${new Date().getTime()}`
+      const url = `https://login.weixin.qq.com/cgi-bin/mmwebwx-bin/login?loginicon=true&uuid=${uuid}&tip=0&_=${new Date().getTime()}`;
+
       log.info("Start checking login status");
       request(url, (err, resp, body) => {
         if (!err && resp.statusCode == 200) {
