@@ -20,25 +20,21 @@ class WeChatClient {
     this.sendMsg = this.sendMsg.bind(this);
 
     this.responders = [];
-    this.groupMsgResponders = {};
-    this.singleMsgResponders = {};
     this.syncCheckRetries = 3;
     this.getNewMsgRetries = 3;
   }
 
-  respondWith(condition, responder){
+  respondWith(responder, condition = '*'){
     this.registerResponder(condition, responder);
     this.responders[condition] = responder;
   }
 
   respondGroupMsgWith(responder, condition = '*') {
-    this.registerGroupMsgResponder(condition, responder);
-    this.groupMsgResponders[condition] = responder;
+    this.respondWith(responder, GROUP + '.' + condition);
   }
 
   respondSingleMsgWith(responder, condition = '*') {
-    this.registerSingleMsgResponder(condition, responder);
-    this.groupMsgResponders[condition] = responder;
+    this.respondWith(responder, SINGLE + '.' + condition);
   }
 
   startEventEmitter() {
@@ -141,14 +137,6 @@ class WeChatClient {
         }
       });
     }
-  }
-
-  registerSingleMsgResponder(fromUserAndMsgTye, responder) {
-    this.registerResponder(SINGLE + '.' + fromUserAndMsgTye, responder);
-  }
-
-  registerGroupMsgResponder(fromGroupAndMsgType, responder) {
-    this.registerResponder(GROUP + '.' + fromGroupAndMsgType, responder);
   }
 
   login() {
