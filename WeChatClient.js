@@ -24,7 +24,8 @@ class WeChatClient {
     this.getNewMsgRetries = 3;
   }
 
-  respondWith(responder, condition = '*'){
+  respondWith(responder, condition){
+    condition = condition || '*';
     const responderKey = responder.constructor.name + ':' + condition;
     if(this.responders.hasOwnProperty(responderKey)){
       log.warning(`Responder: ${responderKey} already registered!`)
@@ -34,11 +35,13 @@ class WeChatClient {
     }
   }
 
-  respondGroupMsgWith(responder, condition = '*') {
+  respondGroupMsgWith(responder, condition) {
+    condition = condition || '*';
     this.respondWith(responder, GROUP + '.' + condition);
   }
 
-  respondSingleMsgWith(responder, condition = '*') {
+  respondSingleMsgWith(responder, condition) {
+    condition = condition || '*';
     this.respondWith(responder, SINGLE + '.' + condition);
   }
 
