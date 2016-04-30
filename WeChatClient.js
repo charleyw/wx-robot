@@ -1,9 +1,12 @@
 'use strict';
-var EventEmitter2 = require('eventemitter2').EventEmitter2;
-var request = require('request').defaults({jar: true});
-var open = require('open');
-var Log = require('log'),
-  log = new Log('info');
+const EventEmitter2 = require('eventemitter2').EventEmitter2;
+const request = require('request').defaults({jar: true});
+const open = require('open');
+const Log = require('log');
+const log = new Log('info');
+
+const GROUP = 'group';
+const SINGLE = 'single';
 
 class WeChatClient {
   constructor() {
@@ -17,6 +20,8 @@ class WeChatClient {
     this.sendMsg = this.sendMsg.bind(this);
 
     this.responders = [];
+    this.groupMsgResponders = {};
+    this.singleMsgResponders = {};
     this.syncCheckRetries = 3;
     this.getNewMsgRetries = 3;
   }
@@ -24,6 +29,16 @@ class WeChatClient {
   respondWith(condition, responder){
     this.registerResponder(condition, responder);
     this.responders[condition] = responder;
+  }
+
+  respondGroupMsgWith(responder, condition = '*') {
+    this.registerGroupMsgResponder(condition, responder);
+    this.groupMsgResponders[condition] = responder;
+  }
+
+  respondSingleMsgWith(responder, condition = '*') {
+    this.registerSingleMsgResponder(condition, responder);
+    this.groupMsgResponders[condition] = responder;
   }
 
   startEventEmitter() {
@@ -37,7 +52,7 @@ class WeChatClient {
       that.getNewMsgRetries = 3;
 
       message.AddMsgList && message.AddMsgList.forEach(message => {
-        const messageScope = message.FromUserName.startsWith('@@') ?  'groupmessage' : 'singlemessage';
+        const messageScope = message.FromUserName.startsWith('@@') ?  GROUP : SINGLE;
         switch (message.MsgType) {
           case 1:
             const eventKey = ['message', messageScope, message.FromUserName, 'text'].join('.');
@@ -99,27 +114,41 @@ class WeChatClient {
 
   registerResponder(condition, responder) {
     const that = this;
+    const msgEvent = 'message.' + condition + '.**';
 
     if(!!this.emitter){
-      log.info("Register responder on: " + 'message.' + condition + '.**');
-      this.emitter.on('message.' + condition + '.**', function(msg){
-        log.info(`Event received [${'message' + condition + '.**'}]`);
+      log.info(`Register responder on: [${msgEvent}]`);
+      this.emitter.on(msgEvent, function(msg){
+        log.info(`Event received [${this.event}]`);
         const events = this.event.split('.');
         if(events.length < 4){
           log.warning('Invalid message event received: ' + this.event)
         } else {
+          const isGroupMsg = events[1] == GROUP;
           switch (events[3]){
             case 'text':
-              responder.onText(msg, response =>
-                that.sendMsg(msg.FromUserName !== that.user.UserName ? msg.FromUserName : msg.ToUserName, response)
-              );
+              if(isGroupMsg){
+                responder.onText(msg.Content, response => that.sendMsg(msg.FromUserName, response));
+              } else {
+                responder.onText(msg.Content, response =>
+                    that.sendMsg(msg.FromUserName !== that.user.UserName ? msg.FromUserName : msg.ToUserName, response)
+                );
+              }
               break;
             default:
-              log.warning(`Unsupport message [${events[4]}] received by responder: ${condition}`)
+              log.warning(`Unsupported message type [${events[4]}] received`)
           }
         }
       });
     }
+  }
+
+  registerSingleMsgResponder(fromUserAndMsgTye, responder) {
+    this.registerResponder(SINGLE + '.' + fromUserAndMsgTye, responder);
+  }
+
+  registerGroupMsgResponder(fromGroupAndMsgType, responder) {
+    this.registerResponder(GROUP + '.' + fromGroupAndMsgType, responder);
   }
 
   login() {
