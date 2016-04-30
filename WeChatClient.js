@@ -19,14 +19,19 @@ class WeChatClient {
     this.registerResponder = this.registerResponder.bind(this);
     this.sendMsg = this.sendMsg.bind(this);
 
-    this.responders = [];
+    this.responders = {};
     this.syncCheckRetries = 3;
     this.getNewMsgRetries = 3;
   }
 
   respondWith(responder, condition = '*'){
-    this.registerResponder(condition, responder);
-    this.responders[condition] = responder;
+    const responderKey = responder.constructor.name + ':' + condition;
+    if(this.responders.hasOwnProperty(responderKey)){
+      log.warning(`Responder: ${responderKey} already registered!`)
+    } else {
+      this.registerResponder(condition, responder);
+      this.responders[responderKey] = {condition: condition, responder: responder};
+    }
   }
 
   respondGroupMsgWith(responder, condition = '*') {
@@ -102,7 +107,8 @@ class WeChatClient {
     this.emitter = emitter;
 
     this.responders && Object.keys(this.responders).forEach(function(key){
-      that.registerResponder(key, that.responders[key]);
+      const respConfig = that.responders[key];
+      that.registerResponder(respConfig.condition, respConfig.responder);
     });
 
     return Promise.resolve();
