@@ -136,7 +136,7 @@ class WeChatClient {
           switch (events[3]){
             case 'text':
               if(isGroupMsg){
-                const groupMsgContext = that.buildGroupContext(msg);
+                const groupMsgContext = that.buildGroupContext(msg, fromUserName);
                 const reply = response => that.sendMsg(fromUserName, response);
                 responder.onText(groupMsgContext.message, reply, groupMsgContext);
               } else {
@@ -160,9 +160,11 @@ class WeChatClient {
   buildGroupContext(msg, fromUserName) {
     const results = msg.Content.match(/(@\w+)?:?(<br\/>)?(.*)/);
     return {
+      isChatRoom: true,
       groupUserName: fromUserName,
       fromUserName: msg.FromUserName == this.user.UserName ? msg.FromUserName : results[1],
       isFromMySelf: msg.FromUserName == this.user.UserName,
+      mentioned: results[3].startsWith('@' + this.user.NickName),
       message: results[3]
     }
   }

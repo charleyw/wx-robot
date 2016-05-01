@@ -3,10 +3,13 @@ const request = require('request');
 
 class TuLinRobot {
   onText(message, reply, ctx) {
-    this.queryTuLinApi(message, ctx.fromUserName.replace(/@*/, ''))
-      .then(resp => {
-        reply(resp.text)
-      }, console.err)
+    console.log(ctx)
+    if((ctx.isChatRoom && ctx.mentioned) || !ctx.isChatRoom){
+      this.queryTuLinApi(message, ctx.fromUserName.replace(/@*/, ''))
+        .then(resp => {
+          reply(resp.text)
+        }, console.err)
+    }
   }
 
   queryTuLinApi(text, contextId) {
