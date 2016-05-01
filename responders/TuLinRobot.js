@@ -2,8 +2,8 @@
 const request = require('request');
 
 class TuLinRobot {
-  onText(message, reply) {
-    this.queryTuLinApi(message.Content, message.FromUserName.replace(/@*/, ''))
+  onText(message, reply, ctx) {
+    this.queryTuLinApi(message, ctx.fromUserName.replace(/@*/, ''))
       .then(resp => {
         reply(resp.text)
       }, console.err)
@@ -31,4 +31,4 @@ class TuLinRobot {
 
 module.exports = TuLinRobot;
 
-//new TuLinRobot().onText({Content:'你好', FromUserName: '@123123123'}, console.log)
+//new TuLinRobot().onText('你好', console.log, {fromUserName: '@123456'})

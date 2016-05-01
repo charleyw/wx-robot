@@ -133,11 +133,16 @@ class WeChatClient {
           switch (events[3]){
             case 'text':
               if(isGroupMsg){
-                responder.onText(msg.Content, response => that.sendMsg(msg.FromUserName, response));
+                const groupMsgContext = buildGroupContext(msg);
+                const reply = response => that.sendMsg(groupMsgContext.groupUserName, response);
+                responder.onText(groupMsgContext.message, reply, groupMsgContext);
               } else {
-                responder.onText(msg.Content, response =>
-                    that.sendMsg(msg.FromUserName !== that.user.UserName ? msg.FromUserName : msg.ToUserName, response)
-                );
+                const singleMsgContext = {
+                  fromUserName: msg.FromUserName !== that.user.UserName ? msg.FromUserName : msg.ToUserName,
+                  message: msg.Content
+                };
+                const reply = response => that.sendMsg(singleMsgContext.fromUserName, response);
+                responder.onText(singleMsgContext.message, reply, singleMsgContext);
               }
               break;
             default:
@@ -145,6 +150,15 @@ class WeChatClient {
           }
         }
       });
+    }
+  }
+
+  buildGroupContext(msg) {
+    const results = msg.Content.match(/(@\w+):(<br\/>)?(.*)/);
+    return {
+      groupUserName: msg.FromUserName,
+      fromUserName: results[1],
+      message: results[3]
     }
   }
 
@@ -283,6 +297,12 @@ class WeChatClient {
 
   processUserLoginData(data) {
     this.user = data.User;
+    this.groupList = {};
+    data.ContactList.forEach(contact => {
+      if(contact.UserName.startsWith('@@')){
+        this.groupList[contact.UserName] = {NickName: contact.NickName}
+      }
+    });
     this.SyncKey = data.SyncKey;
     this.joinnedSyncKey = data.SyncKey.List.map(entry => entry.Key + '_' + entry.Val).join('|');
     return new Promise(resolve => resolve(this.user))
