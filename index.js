@@ -2,7 +2,7 @@
 const WeChatClient = require('./WeChatClient');
 
 const TuLinRobotResponder = require('./responders/TuLinRobot');
-const GroupAdmin = require('./responders/GroupAdmin');
+const AdminResponder = require('./responders/AdminResponder');
 
 class DefaultResponder {
   onText(message, reply) {
@@ -15,4 +15,5 @@ const client = new WeChatClient();
 //client.respondWith('singlemessage.*', new DefaultResponder());
 //client.respondWith('singlemessage.*', new TuLinRobotResponder());
 client.respondSingleMsgWith(new TuLinRobotResponder());
-client.login().then(userName => client.respondGroupMsgWith(new GroupAdmin(userName)));
+client.respondSingleMsgWith(new AdminResponder(client))
+client.login()

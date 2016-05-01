@@ -124,7 +124,7 @@ class WeChatClient {
     const msgEvent = 'message.' + condition + '.**';
 
     if(!!this.emitter){
-      log.info(`Register responder on: [${msgEvent}]`);
+      log.info(`Register responder [${responder.constructor.name}] on: [${msgEvent}]`);
       this.emitter.on(msgEvent, function(msg){
         log.info(`Event received [${this.event}]`);
         const events = this.event.split('.');
@@ -142,6 +142,7 @@ class WeChatClient {
               } else {
                 const singleMsgContext = {
                   fromUserName: fromUserName,
+                  isFromMySelf: msg.FromUserName == that.user.UserName,
                   message: msg.Content
                 };
                 const reply = response => that.sendMsg(singleMsgContext.fromUserName, response);
@@ -179,7 +180,7 @@ class WeChatClient {
         setTimeout(() => this.emitter.emit('new-sync-key-got', this.joinnedSyncKey), 500);
         return Promise.resolve();
       })
-      .then(() => Promise.resolve(this.user.UserName));
+      .then(() => Promise.resolve(this.user.UserName), err => log.error(err));
   }
 
   sendMsg(toUser, text) {
