@@ -1,5 +1,6 @@
 'use strict';
 const EventEmitter2 = require('eventemitter2').EventEmitter2;
+var qrcode = require('qrcode-terminal');
 const request = require('request').defaults({jar: true});
 const open = require('open');
 const Log = require('log');
@@ -398,6 +399,8 @@ class WeChatClient {
 
   printQRCode(uuid) {
     log.info('QR Code Url: https://login.weixin.qq.com/qrcode/' + uuid);
+
+    qrcode.generate('https://login.weixin.qq.com/l/' + uuid);
     //open('https://login.weixin.qq.com/qrcode/' + uuid);
     return new Promise((resolve, reject) => {
       resolve(uuid)
