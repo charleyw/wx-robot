@@ -18,6 +18,7 @@ class WeChatClient {
     this.startEventEmitter = this.startEventEmitter.bind(this);
     this.registerResponder = this.registerResponder.bind(this);
     this.sendMsg = this.sendMsg.bind(this);
+    this.buildGroupContext = this.buildGroupContext.bind(this);
 
     this.responders = {};
     this.syncCheckRetries = 3;
@@ -56,10 +57,11 @@ class WeChatClient {
       that.getNewMsgRetries = 3;
 
       message.AddMsgList && message.AddMsgList.forEach(message => {
-        const messageScope = message.FromUserName.startsWith('@@') ?  GROUP : SINGLE;
+        const fromUserName = message.FromUserName == that.user.UserName ? message.ToUserName : message.FromUserName;
+        const messageScope = fromUserName.startsWith('@@') ?  GROUP : SINGLE;
         switch (message.MsgType) {
           case 1:
-            const eventKey = ['message', messageScope, message.FromUserName, 'text'].join('.');
+            const eventKey = ['message', messageScope, fromUserName, 'text'].join('.');
             log.info('Emit Event: ' + eventKey);
             emitter.emit(eventKey, message);
             break;
@@ -130,15 +132,16 @@ class WeChatClient {
           log.warning('Invalid message event received: ' + this.event)
         } else {
           const isGroupMsg = events[1] == GROUP;
+          const fromUserName = events[2];
           switch (events[3]){
             case 'text':
               if(isGroupMsg){
-                const groupMsgContext = buildGroupContext(msg);
-                const reply = response => that.sendMsg(groupMsgContext.groupUserName, response);
+                const groupMsgContext = that.buildGroupContext(msg);
+                const reply = response => that.sendMsg(fromUserName, response);
                 responder.onText(groupMsgContext.message, reply, groupMsgContext);
               } else {
                 const singleMsgContext = {
-                  fromUserName: msg.FromUserName !== that.user.UserName ? msg.FromUserName : msg.ToUserName,
+                  fromUserName: fromUserName,
                   message: msg.Content
                 };
                 const reply = response => that.sendMsg(singleMsgContext.fromUserName, response);
@@ -153,11 +156,12 @@ class WeChatClient {
     }
   }
 
-  buildGroupContext(msg) {
-    const results = msg.Content.match(/(@\w+):(<br\/>)?(.*)/);
+  buildGroupContext(msg, fromUserName) {
+    const results = msg.Content.match(/(@\w+)?:?(<br\/>)?(.*)/);
     return {
-      groupUserName: msg.FromUserName,
-      fromUserName: results[1],
+      groupUserName: fromUserName,
+      fromUserName: msg.FromUserName == this.user.UserName ? msg.FromUserName : results[1],
+      isFromMySelf: msg.FromUserName == this.user.UserName,
       message: results[3]
     }
   }
